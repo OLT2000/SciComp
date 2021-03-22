@@ -32,16 +32,17 @@ def f_shm(X, t):
 
 
 def euler_step(x_i, h, t_i, fn):
-    x_i_1 = x_i + h*fn(x_i,  t_i)
+    deriv = np.array(fn(x_i, t_i))
+    x_i_1 = x_i + h*deriv
     t_i_1 = t_i + h
     return x_i_1, t_i_1
 
 
 def rk4_step(x_i, h, t_i, fn):
-    k1 = fn(x_i, t_i)
-    k2 = fn(x_i + k1*(h/2), t_i + h/2)
-    k3 = fn(x_i + k2*(h/2), t_i + h/2)
-    k4 = fn(x_i + k3*h, t_i + h)
+    k1 = np.array(fn(x_i, t_i))
+    k2 = np.array(fn(x_i + k1*(h/2), t_i + h/2))
+    k3 = np.array(fn(x_i + k2*(h/2), t_i + h/2))
+    k4 = np.array(fn(x_i + k3*h, t_i + h))
     x_i_1 = x_i + (h/6)*(k1 + 2*(k2+k3) + k4)
     t_i_1 = t_i + h
     return x_i_1, t_i_1
@@ -72,7 +73,8 @@ def solve_ode(x1, tstart, tend, nsteps, h, fn, step_fn):
         t2 = tarray[i+1]
         x_i_1 = solve_to(x_array[-1], t1, t2, h, fn, step_fn)
         x_array.append(x_i_1)
-    return x_array
+    soln = np.reshape(x_array, (-1, 2))
+    return soln.transpose()
 
 
 def plot_solution(t, x):
@@ -93,45 +95,52 @@ def plot_solution(t, x):
     return fig
 
 
-x0 = 1
+x0 = [0, 1]
 t0 = 0
-tf = 15
-
-rk_e_array = []
-h_array = []
-eu_e_array = []
-
-for iter in range(tf):
-    h = (1/2)**iter
-    rk_Val_array = solve_ode(x0, t0, tf, 200,  h, function, rk4_step)
-    eu_Val_array = solve_ode(x0, t0, tf, 200, h, function, euler_step)
-    eu_Final_val = eu_Val_array[-1]
-    rk_Final_val = rk_Val_array[-1]
-    rk_Error = abs(rk_Final_val - exp**tf)
-    eu_Error = abs(eu_Final_val - exp**tf)
-    rk_e_array.append(rk_Error)
-    eu_e_array.append(eu_Error)
-    h_array.append(h)
-
-for i in range(len(h_array)):
-    eu_e_array[i] = log2(eu_e_array[i])
-    rk_e_array[i] = log2(rk_e_array[i])
-    h_array[i] = log2(h_array[i])
-
-fig = plt.figure(figsize=(6, 3))
-ax1 = fig.add_axes([0.58, 0.15, 0.35, 0.7])
-
-# Timeseries plot
-# ax1.set_title('Time series: $x$ against $t$')
-ax1.plot(h_array, eu_e_array, color='green', linewidth=2, label=r'Eulers')
-ax1.plot(h_array, rk_e_array, label=r'RK4')
-ax1.grid()
-ax1.legend()
-
-
-plt.xlabel('log2[h]')
-plt.ylabel('log2[error]')
+tf = 150
+tarray = np.linspace(t0, tf, 200)
+eu = solve_ode(x0, 0, tf, 20, 0.01, f_shm, euler_step)
+rk4 = solve_ode(x0, 0, tf, 200, 0.01, f_shm, rk4_step)
+# print(eu, rk4)
+x = eu[0]
+v = eu[1]
+plt.plot(x, v, color='red')
+# plt.plot(tarray, v, color='green')
 plt.show()
+
+# for iter in range(tf):
+#     h = (1/2)**iter
+#     rk_Val_array = solve_ode(x0, t0, tf, 200,  h, f_shm, rk4_step)
+#     eu_Val_array = solve_ode(x0, t0, tf, 200, h, f_shm, euler_step)
+#     print(rk_Val_array)
+
+    # eu_Final_val = eu_Val_array[-1]
+    # rk_Final_val = rk_Val_array[-1]
+    # rk_Error = abs(rk_Final_val - exp**tf)
+    # eu_Error = abs(eu_Final_val - exp**tf)
+    # rk_e_array.append(rk_Error)
+    # eu_e_array.append(eu_Error)
+    # h_array.append(h)
+
+# for i in range(len(h_array)):
+#     eu_e_array[i] = log2(eu_e_array[i])
+#     rk_e_array[i] = log2(rk_e_array[i])
+#     h_array[i] = log2(h_array[i])
+
+# fig = plt.figure(figsize=(6, 3))
+# ax1 = fig.add_axes([0.58, 0.15, 0.35, 0.7])
+#
+# # Timeseries plot
+# # ax1.set_title('Time series: $x$ against $t$')
+# ax1.plot(h_array, eu_e_array, color='green', linewidth=2, label=r'Eulers')
+# ax1.plot(h_array, rk_e_array, label=r'RK4')
+# ax1.grid()
+# ax1.legend()
+#
+#
+# plt.xlabel('log2[h]')
+# plt.ylabel('log2[error]')
+# plt.show()
 # x2 = solve_ode(x0, time, h, function, rk4_step)
 # print(x2)
 # plot_solution(time, x2)
