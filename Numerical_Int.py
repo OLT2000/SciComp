@@ -17,6 +17,8 @@ def f_shm(X, t):
 
 
 def euler_step(x_i, h, t_i, fn):
+    print("HERE", x_i, t_i, fn)
+    print()
     deriv = np.array(fn(x_i, t_i))
     x_i_1 = x_i + h*deriv
     t_i_1 = t_i + h
@@ -120,10 +122,10 @@ def plot_solution(t, x, v):
     ax1.set_title('Time series: $x, v$ against $t$')
     ax1.plot(t, x, color='green', linewidth=2, label=r'$x$')
     ax1.plot(t, v, color='blue', linewidth=2, label=r'$v$')
-    ax1.set_yticks([-1, 0, 1])
+    # ax1.set_yticks([-1, 0, 1])
     ax1.set_xlabel(r'$t$')
-    ax1.set_xticks([0, np.pi, 2*np.pi, 3*np.pi])
-    ax1.set_xticklabels([r'$0$', r'$\pi$', r'$2\pi$', r'$3\pi$'])
+    # ax1.set_xticks([0, np.pi, 2*np.pi, 3*np.pi])
+    # ax1.set_xticklabels([r'$0$', r'$\pi$', r'$2\pi$', r'$3\pi$'])
     ax1.grid()
     ax1.legend()
 
@@ -132,13 +134,44 @@ def plot_solution(t, x, v):
     ax2.plot(x, v, linewidth=2, color='red')
     ax2.set_xlabel(r'$x$')
     ax2.set_ylabel(r'$v$', rotation=0)
-    ax2.set_xticks([-1, 0, 1])
-    ax2.set_yticks([-1, 0, 1])
+    # ax2.set_xticks([-1, 0, 1])
+    # ax2.set_yticks([-1, 0, 1])
     ax2.grid()
 
     # Return the figure handle for showing/saving
     plt.show()
     return fig
+
+
+def predatorprey(X, t):
+    # print(X)
+    a = 1
+    b = 0.2
+    d = 0.1
+    x, y = X
+    dx = x*(1 - x) - (a*x*y)/(d+x)
+    dy = b*y*(1-(y/x))
+
+    return [dx, dy]
+
+
+# if __name__ == "__main__":
+
+
+
+"""
+Pred-Prey code
+"""
+# xy0 = [0.87, 0.3]
+# t0 = 0
+# tf = 150
+# iters = 2500
+# tarray = np.linspace(t0, tf, iters)
+# result = solve_ode(xy0, t0, tf, iters, 0.01, predatorprey, 'RK4')
+# x = result[0]
+# y = result[1]
+# plot_solution(tarray, x, y)
+
 
 
 """
@@ -155,15 +188,15 @@ def plot_solution(t, x, v):
 
 """
 Nd func code"""
-x0 = [0, 1]
-t0 = 0
-tf = 50
-iters = 1000
-tarray = np.linspace(t0, tf, iters)
-result = solve_ode(x0, 0, tf, iters, 0.01, f_shm)
-x = result[0]
-v = result[1]
-plot_solution(tarray, x, v)
+# x0 = [0, 1]
+# t0 = 0
+# tf = 50
+# iters = 1000
+# tarray = np.linspace(t0, tf, iters)
+# result = solve_ode(x0, 0, tf, iters, 0.01, f_shm)
+# x = result[0]
+# v = result[1]
+# plot_solution(tarray, x, v)
 
 
 # v = result[1]
