@@ -3,7 +3,7 @@ import numpy as np
 from Numerical_Int import solve_ode
 from scipy.integrate import odeint, solve_ivp
 import matplotlib.pyplot as plt
-from scipy.optimize import fsolve
+from scipy.optimize import root
 np.warnings.filterwarnings('ignore', category=np.VisibleDeprecationWarning)
 
 
@@ -47,28 +47,64 @@ def F(t, s):
     return dXdt
 
 
+def predatorprey(X, t):
+    a = 1
+    b = 0.25
+    d = 0.1
+    x, y = X
+    dx = x*(1 - x) - (a*x*y)/(d+x)
+    dy = b*y*(1-(y/x))
+    return [dx, dy]
 
-t_eval = np.linspace(0, 5, 10)
+
+def G_Func(xy0, T):
+    x, y = xy0
+    tarray = np.linspace(0, T, 1000)
+    soln = odeint(predatorprey, [x, y], tarray).transpose()
+    print(soln)
+    X = soln[0][-1]
+    Y = soln[1][-1]
+    dxdt = x*(1 - x) - (1*x*y)/(0.1+x)
+    G = np.array([x - X, y - Y])
+    return G
+
 
 
 
 def objective(x0, v0):
+    # print(x0, v0)
+    t_eval = np.linspace(0, 5, 10)
     sol = solve_ivp(F, [0, 5], [x0, v0], t_eval = t_eval)
     y = sol.y[0]
+    # print(sol.y[-1])
     return y[-1] - 50
 
 
-def objfunc(x0, v0, t, func):
-    ics = np.array([x0, v0])
-    soln = solve_ode(ics, 0, t, 10, 0.01, func)
-    y = soln[0]
-    return y - 50
+def objective2(x0, y0):
+    soln = solve_ivp(predatorprey, [0, 100], [x0, y0])
+    x = sol.y[0]
+    y = sol.y[1]
 
 
-x0 = 0
-v_init = 10
-# v0 = fsolve(lambda v: objective(x0, v), 10)
-v0 = fsolve(lambda v: objfunc(x0, v, 5, F), v_init)
+
+
+def objective_new(ics, bcs, tspan, steps, func):
+    t_eval = np.linspace(tspan[0], tspan[1], steps)
+    sol = solve_ivp(F, tspan, ics, t_eval=t_eval)
+    result = sol.y
+    resultarray = []
+    for r in result:
+        resultarray.append(r[-1])
+    finalval = np.array(resultarray)
+    finalval -= np.array(bcs)
+    return finalval
+
+
+xy0 = [0.2, 0.2]
+Period = 20
+# v_init = 10
+v0 = root(lambda xy, T: G_Func(xy, T), xy0, Period)
+# v0 = fsolve(lambda ics: objective_new(ics, 50, [0, 5], 10, F), [-7, v_init])
 
 print(v0)
 

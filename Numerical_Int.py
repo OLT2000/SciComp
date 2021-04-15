@@ -17,8 +17,6 @@ def f_shm(X, t):
 
 
 def euler_step(x_i, h, t_i, fn):
-    print("HERE", x_i, t_i, fn)
-    print()
     deriv = np.array(fn(x_i, t_i))
     x_i_1 = x_i + h*deriv
     t_i_1 = t_i + h
@@ -86,6 +84,7 @@ def solve_ode(x1, tstart, tend, nsteps, h, fn, solver=None):
         soln = np.reshape(x_array, (-1, 1))
     else:
         soln = np.reshape(x_array, (-1, len(x1)))
+    # print(soln.transpose())
     return soln.transpose()
 
 
@@ -120,8 +119,8 @@ def plot_solution(t, x, v):
 
     # Timeseries plot
     ax1.set_title('Time series: $x, v$ against $t$')
-    ax1.plot(t, x, color='green', linewidth=2, label=r'$x$')
-    ax1.plot(t, v, color='blue', linewidth=2, label=r'$v$')
+    ax1.plot(t, x, color='green', linewidth=1, label=r'$x$')
+    ax1.plot(t, v, color='blue', linewidth=1, label=r'$v$')
     # ax1.set_yticks([-1, 0, 1])
     ax1.set_xlabel(r'$t$')
     # ax1.set_xticks([0, np.pi, 2*np.pi, 3*np.pi])
@@ -131,7 +130,7 @@ def plot_solution(t, x, v):
 
     # Phasespace plot
     ax2.set_title('Phase space: $v$ against $x$')
-    ax2.plot(x, v, linewidth=2, color='red')
+    ax2.plot(x, v, linewidth=0.5, color='red')
     ax2.set_xlabel(r'$x$')
     ax2.set_ylabel(r'$v$', rotation=0)
     # ax2.set_xticks([-1, 0, 1])
@@ -146,7 +145,7 @@ def plot_solution(t, x, v):
 def predatorprey(X, t):
     # print(X)
     a = 1
-    b = 0.2
+    b = 0.25
     d = 0.1
     x, y = X
     dx = x*(1 - x) - (a*x*y)/(d+x)
@@ -161,17 +160,17 @@ def predatorprey(X, t):
 
 """
 Pred-Prey code
-"""
-# xy0 = [0.87, 0.3]
+# """
+# xy0 = [0.27015621, 0.27015621]
 # t0 = 0
-# tf = 150
-# iters = 2500
+# tf = 4000
+# iters = 10000
 # tarray = np.linspace(t0, tf, iters)
 # result = solve_ode(xy0, t0, tf, iters, 0.01, predatorprey, 'RK4')
 # x = result[0]
 # y = result[1]
 # plot_solution(tarray, x, y)
-
+# print(tarray[5368] - tarray[5000], x[5368] - x[5000], y[5368]-y[5000])
 
 
 """
@@ -182,7 +181,7 @@ Pred-Prey code
 # tf = 10
 # iters = 200
 # tarray = np.linspace(t0, tf, iters)
-# result = solve_ode(x0, 0, tf, iters, 0.01, function, 'Euler')
+# result = solve_ode(x0, 0, tf, iters, 0.01, function)
 # x = result
 # plot_solution1d(tarray, x)
 
