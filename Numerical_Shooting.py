@@ -49,7 +49,7 @@ def F(t, s):
 
 def predatorprey(X, t):
     a = 1
-    b = 0.25
+    b = 0.2
     d = 0.1
     x, y = X
     dx = x*(1 - x) - (a*x*y)/(d+x)
@@ -57,18 +57,29 @@ def predatorprey(X, t):
     return [dx, dy]
 
 
-def G_Func(xy0, T):
-    x, y = xy0
+def G_Func(xyT):
+    # x, y = xy0
+    x, y, T = xyT
     tarray = np.linspace(0, T, 1000)
     soln = odeint(predatorprey, [x, y], tarray).transpose()
-    print(soln)
+    # print(x, y)
+    # print(soln, T)
     X = soln[0][-1]
     Y = soln[1][-1]
     dxdt = x*(1 - x) - (1*x*y)/(0.1+x)
-    G = np.array([x - X, y - Y])
+    G = np.array([x - X, y - Y, dxdt])
     return G
 
 
+def objfun(x, y, prd):
+    x, y = xy
+    tarray = np.linspace(0, prd, 1000)
+    soln = odeint(predatorprey, [x, y], tarray).transpose()
+    X = soln[0][-1]
+    Y = soln[1][-1]
+    dxdt = x*(1 - x) - (1*x*y)/(0.1+x)
+    G = np.array([x - X, y - Y, dxdt])
+    return G
 
 
 def objective(x0, v0):
@@ -100,10 +111,13 @@ def objective_new(ics, bcs, tspan, steps, func):
     return finalval
 
 
-xy0 = [0.2, 0.2]
+# xy0 = [0.2, 0.3]
 Period = 20
+x0 = 0.2
+y0 = 0.3
+xy0T = [0.2, 0.3, 20]
 # v_init = 10
-v0 = root(lambda xy, T: G_Func(xy, T), xy0, Period)
+v0 = root(G_Func, xy0T)
 # v0 = fsolve(lambda ics: objective_new(ics, 50, [0, 5], 10, F), [-7, v_init])
 
 print(v0)
