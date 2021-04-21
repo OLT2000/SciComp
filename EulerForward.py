@@ -9,21 +9,18 @@ from scipy.sparse.linalg import spsolve
 
 # Set problem parameters/functions
 kappa = 1.0   # diffusion constant
-L=1.0         # length of spatial domain
-T=0.5         # total time to solve for
+     # total time to solve for
 def u_I(x):
     # initial temperature distribution
     y = np.sin(pi*x/L)
     return y
+
 
 def u_exact(x,t):
     # the exact solution
     y = np.exp(-kappa*(pi**2/L**2)*t)*np.sin(pi*x/L)
     return y
 
-# Set numerical parameters
-mx = 10     # number of gridpoints in space
-mt = 1000   # number of gridpoints in time
 
 # u at next time step
 
@@ -61,7 +58,10 @@ def forwardeuler(max_x, max_t, T, L):
     return x, jarray
 
 
-def fwdmatrix(max_x, max_t, T, L):
+def fwdmatrix(max_x, max_t, T, L, pde):
+    bc1 = lambda t: t
+    bc2 = lambda t: t
+
     x = np.linspace(0, L, max_x+1)     # mesh points in space
     t = np.linspace(0, T, max_t+1)
     jarray = np.zeros(x.size)        # u at current time step
@@ -79,24 +79,23 @@ def fwdmatrix(max_x, max_t, T, L):
     print("deltat=",deltat)
     print("lambda=",lmbda)
     for i in range(0, max_x+1):
-        jarray[i] = u_I(x[i]) #Calcs u_I at each x point
+        jarray[i] = pde(x[i]) #Calcs u_I at each x point
     # print(jarray)
     for j in range(max_t):
-        jarray1 = np.dot(A_FE, jarray)
-        # Boundary conditions
-        jarray1 = np.array(jarray1)[0]
-        jarray1[0] = 0
-        jarray1[max_x] = 0
+        jarray1 = np.array(A_FE.dot(jarray))[0]
+
+        jarray1[0] = bc1(t[j])
+        jarray1[max_x] = bc2(t[j])
         # Save u_j at time t[j+1]
         jarray[:] = jarray1[:]
     return x, jarray
 
 
-def backwardseuler(max_x, max_t, T, L):
+def backwardseuler(max_x, max_t, T, L, pde):
     x = np.linspace(0, L, max_x+1)     # mesh points in space
     t = np.linspace(0, T, max_t+1)
     jarray = np.zeros(x.size)        # u at current time step
-    jarray1 = np.zeros(x.size)
+    jarray1 = np.zeros(x.size)      # u at j+1 timestep
     deltax = x[1] - x[0]            # gridspacing in x
     deltat = t[1] - t[0]            # gridspacing in t
     lmbda = kappa*deltat/(deltax**2)    # mesh fourier number
@@ -111,21 +110,21 @@ def backwardseuler(max_x, max_t, T, L):
     print("deltat=",deltat)
     print("lambda=",lmbda)
     for i in range(0, max_x+1):
-        jarray[i] = u_I(x[i]) #Calcs u_I at each x point
-    # print(jarray)
+        jarray[i] = pde(x[i]) #Calcs u_I at each x point
+    print(jarray)
     for j in range(max_t):
-        # jarray1 = np.dot(A_BE, jarray)
-        # # Boundary conditions
-        # jarray1 = np.array(jarray1)[0]
         jarray1 = scipy.sparse.linalg.spsolve(A_BE, jarray)
+
+        #set boundary conditions
         jarray1[0] = 0
         jarray1[max_x] = 0
+
         # Save u_j at time t[j+1]
         jarray[:] = jarray1[:]
     return x, jarray
 
 
-def cranknicholson(max_x, max_t, T, L):
+def cranknicholson(max_x, max_t, T, L, pde):
     x = np.linspace(0, L, max_x+1)     # mesh points in space
     t = np.linspace(0, T, max_t+1)
     jarray = np.zeros(x.size)        # u at current time step
@@ -148,15 +147,12 @@ def cranknicholson(max_x, max_t, T, L):
     print("deltat=",deltat)
     print("lambda=",lmbda)
     for i in range(0, max_x+1):
-        jarray[i] = u_I(x[i]) #Calcs u_I at each x point
+        jarray[i] = pde(x[i]) #Calcs u_I at each x point
     # print(jarray)
     for j in range(max_t):
-        # jarray1 = np.dot(A_BE, jarray)
-        # # Boundary conditions
-        # jarray1 = np.array(jarray1)[0]
-        b_array = np.dot(B_CN, jarray)
-        b_array = np.array(b_array)[0]
+        b_array = np.array(B_CN.dot(jarray))[0]
         jarray1 = scipy.sparse.linalg.spsolve(A_CN, b_array)
+        #BCs
         jarray1[0] = 0
         jarray1[max_x] = 0
         # Save u_j at time t[j+1]
@@ -164,10 +160,36 @@ def cranknicholson(max_x, max_t, T, L):
     return x, jarray
 
 
+def finite_diff(pde, max_x, max_t, T, L, discretisation = None):
+    if discretisation == None:
+        print("Please choose a Discretisation")
+        discretisation = input("forward, backward or cn?")
+
+    if discretisation == 'forward':
+        discretisation = fwdmatrix
+    elif discretisation == 'backward':
+        discretisation = backwardseuler
+    elif discretisation == 'cn':
+        discretisation = cranknicholson
+    else:
+        print("Invalid discretisation")
+        return -1
+    x, jarr = discretisation(max_x, max_t, T, L, pde)
+    return x, jarr
+
+
+
+L = 1.0         # length of spatial domain
+T = 0.5
+# Set numerical parameters
+mx = 10    # number of gridpoints in space
+mt = 1000   # number of gridpoints in time
+
 # X, u_j = forwardeuler(mx, mt, T, L)
 # X, u_j = backwardseuler(mx, mt, T, L)
-X, u_j = cranknicholson(mx, mt, T, L)
-
+# X, u_j = cranknicholson(mx, mt, T, L)
+# X, u_j = fwdmatrix(mx, mt, T, L)
+X, u_j = finite_diff(u_I, mx, mt, T, L)
 # print(ah)
 # Plot the final result and exact solution
 plt.plot(X,u_j,'ro',label='num')
