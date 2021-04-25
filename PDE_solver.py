@@ -105,13 +105,11 @@ def backwardseuler(max_x, max_t, T, L, pde):
     mtrx = np.array([a, b, c])
     pos = [-1, 0, 1]
     A_BE = sp.sparse.spdiags(mtrx, pos, max_x+1, max_x+1).todense()
-    print(A_BE)
     print("deltax=",deltax)
     print("deltat=",deltat)
     print("lambda=",lmbda)
     for i in range(0, max_x+1):
         jarray[i] = pde(x[i]) #Calcs u_I at each x point
-    print(jarray)
     for j in range(max_t):
         jarray1 = scipy.sparse.linalg.spsolve(A_BE, jarray)
 
@@ -180,16 +178,16 @@ def finite_diff(pde, max_x, max_t, T, L, discretisation = None):
 
 
 L = 1.0         # length of spatial domain
-T = 0.5
+T = 0.1
 # Set numerical parameters
 mx = 10    # number of gridpoints in space
 mt = 1000   # number of gridpoints in time
 
 # X, u_j = forwardeuler(mx, mt, T, L)
-# X, u_j = backwardseuler(mx, mt, T, L)
-# X, u_j = cranknicholson(mx, mt, T, L)
+X, u_j = backwardseuler(mx, mt, T, L, u_I)
+# X, u_j = cranknicholson(mx, mt, T, L, u_I)
 # X, u_j = fwdmatrix(mx, mt, T, L)
-X, u_j = finite_diff(u_I, mx, mt, T, L)
+# X, u_j = finite_diff(u_I, mx, mt, T, L)
 # print(ah)
 # Plot the final result and exact solution
 plt.plot(X,u_j,'ro',label='num')
