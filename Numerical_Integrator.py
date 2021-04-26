@@ -171,15 +171,15 @@ def hopf(U, t):
 
 
 # Code Testing
-U0 = [1, -1]
-t0 = 0
-tf = 7
-iters = 2000
-tarr = np.linspace(t0, tf, iters)
-r = solve_ode(U0, t0, tf, iters, 0.01, hopf, 'Euler')
-x = r[0]
-y = r[1]
-plot_solution(tarr, x, y)
+# U0 = [1, -1]
+# t0 = 0
+# tf = 7
+# iters = 2000
+# tarr = np.linspace(t0, tf, iters)
+# r = solve_ode(U0, t0, tf, iters, 0.01, hopf, 'Euler')
+# x = r[0]
+# y = r[1]
+# plot_solution(tarr, x, y)
 
 
 

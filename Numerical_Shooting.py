@@ -1,6 +1,6 @@
 # %%
 import numpy as np
-from Numerical_Int import solve_ode
+from Numerical_Integrator import solve_ode
 from scipy.integrate import odeint
 from scipy.optimize import root
 from scipy.optimize import fsolve
@@ -62,29 +62,33 @@ def codetest(U, t):
     return np.array([du1, du2, du3])
 
 
-
-def shooting(ode, ics, T_guess, nsteps):
-    if type(ics) != list and type(ics) != int and type(ics) != np.ndarray:
-        raise TypeError("Your initial conditions are of the form", type(ics), 'Please check your initial conditions are of the form Int (for a 1d system) or list/ndarray (for an Nd system)')
+def shooting(ode, ics, T_guess, nsteps, stepsize):
+    try:
+        ode(ics, T_guess)
+    except ValueError:
+        print('Please check the dimensions of the initial conditions match those of the ODE.\nYou gave', len(ics), 'values')
+    else:
+        if type(ics) != list and type(ics) != int and type(ics) != np.ndarray:
+            raise TypeError("Your initial conditions are of the form", type(ics), 'Please check your initial conditions are of the form Int (for a 1d system) or list/ndarray (for an Nd system)')
         # return -1
-    initial_guess = [x for x in ics]
-    initial_guess.append(T_guess)
-    tarr = np.linspace(0, T_guess, nsteps)
-    def obj_fun(xyT):
-        T = xyT[-1]
-        xyT = xyT[:-1]
-        soln = solve_ode(xyT, 0, T, nsteps, 0.1, ode, solver='RK4')
-        x = xyT[0]
-        y = xyT[1]
-        X = soln[0][-1]
-        Y = soln[1][-1]
-        dxdt = ode(xyT, T)[0]
-        obj = np.array([x - X, y - Y, dxdt])
-        return obj
-    result = root(obj_fun, initial_guess)
-    print("The corrected initial values found:", result.x[:-1])
-    print("The Period is:", result.x[-1])
-    return result.x
+        initial_guess = [x for x in ics]
+        initial_guess.append(T_guess)
+        tarr = np.linspace(0, T_guess, nsteps)
+        def obj_fun(xyT):
+            T = xyT[-1]
+            xyT = xyT[:-1]
+            soln = solve_ode(xyT, 0, T, nsteps, stepsize, ode, solver='RK4')
+            x = xyT[0]
+            y = xyT[1]
+            X = soln[0][-1]
+            Y = soln[1][-1]
+            dxdt = ode(xyT, T)[0]
+            obj = np.array([x - X, y - Y, dxdt])
+            return obj
+        result = root(obj_fun, initial_guess)
+        print("The corrected initial values found:", result.x[:-1])
+        print("The Period is:", result.x[-1])
+        return result.x
 
 
 def hopf(U, t):
@@ -97,9 +101,9 @@ def hopf(U, t):
 
 
 Period = 6
-U0 = np.array([1, -1])
+U0 = np.array([1, 1, 1])
 # U0 = '2'
-v0 = shooting(hopf, U0, Period, 1000)
+v0 = shooting(hopf, U0, Period, 1000, 0.1)
 # v_init = 10
 # v0 = root(G_Func, xy0T)
 # v0 = fsolve(G_Func, xy0T)
