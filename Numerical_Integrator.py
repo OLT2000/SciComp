@@ -8,6 +8,9 @@ def function(x, t):
     return x
 
 
+
+
+
 def f_shm(X, t):
     x, v = X
     dxdt = v
@@ -60,6 +63,7 @@ def solve_ode(x1, tstart, tend, nsteps, h, fn, solver=None):
     :param solver: Method of solution, Euler for Euler's, and RK4 for RK4, if none, function will ask for input
     :return: N-D Array of solution points
     """
+    # print("here", x1)
     if solver == None: #if no solver was specified
         print("Please choose a Solver")
         solver = input("Euler or RK4")
@@ -154,7 +158,28 @@ def predatorprey(X, t):
     return [dx, dy]
 
 
+def hopf(U, t):
+    u1, u2 = U
+    beta = 1
+    sigma = -0.9
+    du1 = beta*u1 - u2 + sigma*u1*(u1**2 + u2**2)
+    du2 = u1 + beta*u2 + sigma*u2*(u1**2 + u2**2)
+    return np.array([du1, du2])
+
+
 # if __name__ == "__main__":
+
+
+# Code Testing
+U0 = [1, -1]
+t0 = 0
+tf = 7
+iters = 2000
+tarr = np.linspace(t0, tf, iters)
+r = solve_ode(U0, t0, tf, iters, 0.01, hopf, 'Euler')
+x = r[0]
+y = r[1]
+plot_solution(tarr, x, y)
 
 
 

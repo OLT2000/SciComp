@@ -4,7 +4,7 @@ from Numerical_Int import solve_ode
 from scipy.integrate import odeint
 from scipy.optimize import root
 from scipy.optimize import fsolve
-np.warnings.filterwarnings('ignore', category=np.VisibleDeprecationWarning)
+# np.warnings.filterwarnings('ignore', category=np.VisibleDeprecationWarning)
 
 
 
@@ -52,15 +52,21 @@ def predatorprey(X, t):
     return [dx, dy]
 
 
-# def testfunc(X, t):
-
-
+def codetest(U, t):
+    u1, u2, u3 = U
+    beta = 1
+    sigma = 1
+    du1 = beta*u1 - u2 + sigma*u1*(u1**2 + u2**2)
+    du2 = u1 + beta*u2 + sigma*u2*(u1**2 + u2**2)
+    du3 = -u3
+    return np.array([du1, du2, du3])
 
 
 
 def shooting(ode, ics, T_guess, nsteps):
-    if type(ics) != list and type(ics) != int:
-        print('Please check your initial conditions')
+    if type(ics) != list and type(ics) != int and type(ics) != np.ndarray:
+        raise TypeError("Your initial conditions are of the form", type(ics), 'Please check your initial conditions are of the form Int (for a 1d system) or list/ndarray (for an Nd system)')
+        # return -1
     initial_guess = [x for x in ics]
     initial_guess.append(T_guess)
     tarr = np.linspace(0, T_guess, nsteps)
@@ -76,13 +82,24 @@ def shooting(ode, ics, T_guess, nsteps):
         obj = np.array([x - X, y - Y, dxdt])
         return obj
     result = root(obj_fun, initial_guess)
+    print("The corrected initial values found:", result.x[:-1])
+    print("The Period is:", result.x[-1])
     return result.x
 
 
-Period = 20
-x0 = 0.2
-y0 = 0.3
-v0 = shooting(predatorprey, [x0, y0], Period, 1000)
+def hopf(U, t):
+    u1, u2 = U
+    beta = 1
+    sigma = -1
+    du1 = beta*u1 - u2 + sigma*u1*(u1**2 + u2**2)
+    du2 = u1 + beta*u2 + sigma*u2*(u1**2 + u2**2)
+    return np.array([du1, du2])
+
+
+Period = 6
+U0 = np.array([1, -1])
+# U0 = '2'
+v0 = shooting(hopf, U0, Period, 1000)
 # v_init = 10
 # v0 = root(G_Func, xy0T)
 # v0 = fsolve(G_Func, xy0T)
