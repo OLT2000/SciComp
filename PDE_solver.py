@@ -1,9 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from math import pi
+from math import pi, log2
 import scipy as sp
 import scipy.sparse
 from scipy.sparse.linalg import spsolve
+from sklearn.linear_model import LinearRegression
 
 # import scipy.sparse as sp
 
@@ -16,7 +17,7 @@ def u_I(x):
     return y
 
 
-def u_exact(x,t):
+def u_exact(x, t):
     # the exact solution
     y = np.exp(-kappa*(pi**2/L**2)*t)*np.sin(pi*x/L)
     return y
@@ -59,8 +60,8 @@ def forwardeuler(max_x, max_t, T, L):
 
 
 def fwdmatrix(max_x, max_t, T, L, pde):
-    bc1 = lambda t: t
-    bc2 = lambda t: t
+    bc1 = lambda t: 0 #lambda function w.r.t t for boundary condition
+    bc2 = lambda t: 0
 
     x = np.linspace(0, L, max_x+1)     # mesh points in space
     t = np.linspace(0, T, max_t+1)
@@ -81,7 +82,7 @@ def fwdmatrix(max_x, max_t, T, L, pde):
     for i in range(0, max_x+1):
         jarray[i] = pde(x[i]) #Calcs u_I at each x point
     # print(jarray)
-    for j in range(max_t):
+    for j in range(0, max_t):
         jarray1 = np.array(A_FE.dot(jarray))[0]
 
         jarray1[0] = bc1(t[j])
@@ -91,7 +92,7 @@ def fwdmatrix(max_x, max_t, T, L, pde):
     return x, jarray
 
 
-def backwardseuler(max_x, max_t, T, L, pde):
+def backwardseuler(max_x, max_t, T, L, pde, verbose = False):
     x = np.linspace(0, L, max_x+1)     # mesh points in space
     t = np.linspace(0, T, max_t+1)
     jarray = np.zeros(x.size)        # u at current time step
@@ -105,13 +106,16 @@ def backwardseuler(max_x, max_t, T, L, pde):
     mtrx = np.array([a, b, c])
     pos = [-1, 0, 1]
     A_BE = sp.sparse.spdiags(mtrx, pos, max_x+1, max_x+1).todense()
-    print("deltax=",deltax)
-    print("deltat=",deltat)
-    print("lambda=",lmbda)
+    if verbose == True:
+        print("deltax =",deltax)
+        print("deltat =",deltat)
+        print("lambda =",lmbda)
     for i in range(0, max_x+1):
         jarray[i] = pde(x[i]) #Calcs u_I at each x point
-    for j in range(max_t):
+    for j in range(0, max_t):
+        # print()
         jarray1 = scipy.sparse.linalg.spsolve(A_BE, jarray)
+        # jarray1 = np.linalg.solve(A_BE, jarray)
 
         #set boundary conditions
         jarray1[0] = 0
@@ -122,7 +126,7 @@ def backwardseuler(max_x, max_t, T, L, pde):
     return x, jarray
 
 
-def cranknicholson(max_x, max_t, T, L, pde):
+def cranknicholson(max_x, max_t, T, L, pde, verbose = False):
     x = np.linspace(0, L, max_x+1)     # mesh points in space
     t = np.linspace(0, T, max_t+1)
     jarray = np.zeros(x.size)        # u at current time step
@@ -140,10 +144,10 @@ def cranknicholson(max_x, max_t, T, L, pde):
     pos = [-1, 0, 1]
     A_CN = sp.sparse.spdiags(mtrx_a, pos, max_x+1, max_x+1).todense()
     B_CN = sp.sparse.spdiags(mtrx_b, pos, max_x+1, max_x+1).todense()
-    # print(A_BE)
-    print("deltax=",deltax)
-    print("deltat=",deltat)
-    print("lambda=",lmbda)
+    if verbose == True:
+        print("deltax=",deltax)
+        print("deltat=",deltat)
+        print("lambda=",lmbda)
     for i in range(0, max_x+1):
         jarray[i] = pde(x[i]) #Calcs u_I at each x point
     # print(jarray)
@@ -170,30 +174,69 @@ def finite_diff(pde, max_x, max_t, T, L, discretisation = None):
     elif discretisation == 'cn':
         discretisation = cranknicholson
     else:
-        print("Invalid discretisation")
+        print("Invalid discretisation\nPlease choose forward, backward, or cn")
         return -1
     x, jarr = discretisation(max_x, max_t, T, L, pde)
     return x, jarr
 
 
+def get_slope(error, delta):
+    X= np.array(delta)
+    Y = np.array(error)
+    model = LinearRegression()
+    model.fit(X.reshape(-1,1), Y)
+    return model.coef_
+
 
 L = 1.0         # length of spatial domain
-T = 0.1
+T = 0.5
 # Set numerical parameters
-mx = 10    # number of gridpoints in space
-mt = 1000   # number of gridpoints in time
+mx = 10   # number of gridpoints in space
+mt = 100   # number of gridpoints in time
 
 # X, u_j = forwardeuler(mx, mt, T, L)
-X, u_j = backwardseuler(mx, mt, T, L, u_I)
+# X, u_j = backwardseuler(mx, mt, T, L, u_I)
 # X, u_j = cranknicholson(mx, mt, T, L, u_I)
 # X, u_j = fwdmatrix(mx, mt, T, L)
-# X, u_j = finite_diff(u_I, mx, mt, T, L)
-# print(ah)
-# Plot the final result and exact solution
-plt.plot(X,u_j,'ro',label='num')
 xx = np.linspace(0,L,250)
-plt.plot(xx,u_exact(xx,T),'b-',label='exact')
-plt.xlabel('X')
-plt.ylabel('u(x,0.5)')
-plt.legend(loc='upper right')
+U_Exact = u_exact(xx, T)
+Errors = []
+Errors1 = []
+delt = []
+for n in range(25):
+    tempdel = T/mt
+    X, u_j = finite_diff(u_I, mx, mt, T, L, discretisation='cn')
+    X1, u_j1 = finite_diff(u_I, mx, mt, T, L, discretisation='backward')
+    Max_Error = abs(np.max(u_j) - np.max(U_Exact))
+    MaxE1 = abs(np.max(u_j1) - np.max(U_Exact))
+    Errors.append(Max_Error)
+    Errors1.append(MaxE1)
+    delt.append(tempdel)
+    mt += 50
+
+
+
+for e in range(len(Errors)):
+    Errors[e] = log2(Errors[e])
+    Errors1[e] = log2(Errors1[e])
+    delt[e] = log2(delt[e])
+
+
+plt.plot(delt, Errors)
+plt.plot(delt, Errors1, 'r-')
 plt.show()
+
+slope = get_slope(Errors, delt)
+slope1 = get_slope(Errors1, delt)
+print("Slope for cn:", slope)
+print("SLope for bwd:", slope1)
+
+# print(ah)
+#Plot the final result and exact solution
+# plt.plot(X,u_j,'rx',label='num')
+#
+# plt.plot(xx,u_exact(xx,T),'b-',label='exact')
+# plt.xlabel('X')
+# plt.ylabel('u(x,0.5)')
+# plt.legend(loc='upper right')
+# plt.show()
