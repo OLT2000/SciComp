@@ -15,43 +15,36 @@ def hopf(U, beta):
     return np.array([du1, du2])
 
 
-beta_space = np.linspace(2, -1, 101)
-delta_beta = beta_space[1] - beta_space[0]
-beta0 = beta_space[0]
+def pseudo_arc_length(ode, V0, V1):
+    V_array = [V0, V1]
+    #create secant
+    secant = V1 - V0
+    #predict solution
+    V_tilda = V1 + secant
 
-T0 = 6.283185307261597
+    for n in range(1000):
+        #define objective func to root
+        def objective(v):
+            b = v[0]
+            U = v[1:]
+            f_u = ode(U, b)
+            dot_prod = np.dot((v - V_tilda), secant)
+            return np.append(dot_prod, f_u)
+        solution = root(objective, V_tilda)
+        v_true = solution.x
+        V_array.append(v_true)
+        secant = V_array[-1] - V_array[-2]
+        V_tilda = V_array[-1] + secant
+    Final_V = np.array(V_array)
+    return Final_V.transpose()
+
+
+
 U0 = np.array([2, 1.41421356e+00, 1.39558408e-09])
-
-
-T1 = 6.283185307262165
 U1 = np.array([1.95, 1.39642400e+00, 1.26064267e-09])
 
+c_x = pseudo_arc_length(hopf, U0, U1)
 
-V0 = U0
-V1 = U1
-
-#create secant
-secant = V1 - V0
-#predict solution
-V_tilda = V1 + secant
-V_array = [V0, V1]
-
-print("V tilda = ", V_tilda)
-for n in range(1000):
-    #define objective func to root
-    def objective(v):
-        b, u1, u2 = v
-        f_u = hopf([u1, u2], b)
-        dot_prod = np.dot((v - V_tilda), secant)
-        return np.append(dot_prod, f_u)
-    solution = root(objective, V_tilda)
-    v_true = solution.x
-    V_array.append(v_true)
-    secant = V_array[-1] - V_array[-2]
-    V_tilda = V_array[-1] + secant
-
-v_array = np.array(V_array)
-c_x = v_array.transpose()
 Cs = c_x[0]
 Xs = c_x[1]
 print(Cs)
