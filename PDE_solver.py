@@ -46,7 +46,6 @@ def forward_euler_main(max_x, max_t, T, L, pde, bcs, bc_type=None):
     if lmbda >= 0.5:
         raise ValueError('Forward Euler is conditionally stable for lambda < 0.5, your lambda is:', lmbda)
 
-
     if bc_type == None:
         print("Please choose a boundary condition type")
         bc_type = input("dirichlet, or neumann")
@@ -93,42 +92,82 @@ def forward_euler_main(max_x, max_t, T, L, pde, bcs, bc_type=None):
         raise ValueError('Boundary conditions must be either dirichlet or neumann')
 
 
-
-
-def forward_neumann(max_x, max_t, T, L, pde):
-
+def backwards_euler_main(max_x, max_t, T, L, pde, bcs, bc_type=None):
+    bc1 = bcs[0]
+    bc2 = bcs[1]
+    if type(bc1) != types.FunctionType or type(bc2) != types.FunctionType:
+        raise TypeError('Both Boundary Conditions must be of type function (lambda or defined), even if 0')
     x = np.linspace(0, L, max_x+1)     # mesh points in space
     t = np.linspace(0, T, max_t+1)
     jarray = np.zeros(x.size)        # u at current time step
     jarray1 = np.zeros(x.size)
+
+    #Calculate initial conditions
+    for i in range(0, max_x+1):
+        jarray[i] = pde(x[i])
+
     deltax = x[1] - x[0]            # gridspacing in x
     deltat = t[1] - t[0]            # gridspacing in t
-    lmbda = kappa*deltat/(deltax**2) # mesh fourier number
-    if lmbda >= 0.5:
-        raise ValueError('Forward Euler is conditionally stable for lambda < 0.5, your lambda is:', lmbda)
-    a = lmbda * np.ones(max_x+1)
-    b = (1-2*lmbda)*np.ones(max_x+1)
-    c = lmbda * np.ones(max_x+1)
-    a[-2] = c[1] = 2*lmbda
-    mtrx = np.array([a, b, c])
-    pos = [-1, 0, 1]
-    A_FE = sp.sparse.spdiags(mtrx, pos, max_x+1, max_x+1).todense()
-    print(A_FE)
-    print("deltax=",deltax)
-    print("deltat=",deltat)
-    print("lambda=",lmbda)
-    for i in range(0, max_x+1):
-        jarray[i] = pde(x[i]) #Calcs u_I at each x point
-    for j in range(max_t):
-        #Matrix calculations
-        b_array = np.zeros(jarray.size)
-        b_array[0] = bc_0(t[j])
-        b_array[-1] = bc_L(t[j])
-        jarray1 = np.dot(A_FE, jarray) + 2*lmbda*deltax*b_array
+    lmbda = kappa*deltat/(deltax**2)
 
-        # Save u_j at time t[j+1]
-        jarray[:] = jarray1[:]
-    return x, jarray
+    if bc_type == None:
+        print("Please choose a boundary condition type")
+        bc_type = input("dirichlet, or neumann")
+
+    if bc_type == 'dirichlet':
+        a = -lmbda * np.ones(max_x-1)
+        b = (1+2*lmbda)*np.ones(max_x-1)
+        c = a
+        mtrx = np.array([a, b, c])
+        pos = [-1, 0, 1]
+        A_BE = sp.sparse.spdiags(mtrx, pos, max_x-1, max_x-1).todense()
+
+        for j in range(0, max_t):
+            p_j = bc1(t[j])
+            q_j = bc2(t[j])
+            b_array = np.zeros(jarray[1:-1].size)
+            b_array[0] = p_j
+            b_array[-1] = q_j
+            jarray1[1:-1] = scipy.sparse.linalg.spsolve(A_BE, jarray[1:-1]+lmbda*b_array)
+
+            #set boundary conditions
+            jarray1[0] = p_j
+            jarray1[-1] = q_j
+
+            # Save u_j at time t[j+1]
+            jarray[:] = jarray1[:]
+        return x, jarray
+    elif bc_type == 'neumann':
+        a = -lmbda * np.ones(max_x+1)
+        b = (1+2*lmbda)*np.ones(max_x+1)
+        c = a
+
+        a1 = np.zeros(max_x+1)
+        a1[-2] = lmbda
+        b1 = np.ones(max_x+1)
+        c1 = np.zeros(max_x+1)
+        c1[1] = lmbda
+
+        mtrx1 = np.array([a1, b1, c1])
+        mtrx = np.array([a, b, c])
+        pos = [-1, 0, 1]
+        A_BE = sp.sparse.spdiags(mtrx, pos, max_x+1, max_x+1).todense()
+        A_BE1 = sp.sparse.spdiags(mtrx1, pos, max_x+1, max_x+1).todense()
+        for j in range(0, max_t):
+            p_j = bc1(t[j])
+            q_j = bc2(t[j])
+            b_array = np.zeros(jarray.size)
+            b_array[0] = -2*deltax*p_j
+            b_array[-1] = 2*deltax*q_j
+            new_j = np.array(np.dot(A_BE1, jarray))[0]
+            jarray1 = scipy.sparse.linalg.spsolve(A_BE, new_j+lmbda*b_array)
+
+            # Save u_j at time t[j+1]
+            jarray[:] = jarray1[:]
+        return x, jarray
+    else:
+        raise ValueError('Boundary conditions must be either dirichlet or neumann')
+
 
 
 def backwardseuler(max_x, max_t, T, L, pde, verbose = False):
@@ -158,7 +197,6 @@ def backwardseuler(max_x, max_t, T, L, pde, verbose = False):
         bjp1[0] = lmbda*bc1(t[j+1])
         bjp1[-1] = lmbda*bc2(t[j+1])
         jarray1[1:-1] = scipy.sparse.linalg.spsolve(A_BE, jarray[1:-1]+bjp1)
-        # jarray1 = np.linalg.solve(A_BE, jarray)
 
         #set boundary conditions
         jarray1[0] = bc1(t[j])
@@ -262,9 +300,9 @@ def get_slope(error, delta):
 
 
 L = 1.0         # length of spatial domain
-T = 0.1
+T = 0.2
 # Set numerical parameters
-mx = 50   # number of gridpoints in space
+mx = 10   # number of gridpoints in space
 mt = 1000   # number of gridpoints in time
 
 # X, u_j = forwardeuler(mx, mt, T, L)
@@ -276,12 +314,26 @@ mt = 1000   # number of gridpoints in time
 b1test = lambda x: 0
 b2test = lambda x: 0
 
-X, u_j = forward_euler_main(mx, mt, T, L, u_fx, [b1test, b2test])
+# X, u_j = forward_euler_main(mx, mt, T, L, u_fx, [b1test, b2test])
+X, u_j = backwards_euler_main(mx, mt, T, L, u_fx, [b1test, b2test], bc_type='neumann')
 xx = np.linspace(0, L, 250)
 U_Exact = u_exact(xx, T)
-Errors = []
-Errors1 = []
-delt = []
+
+
+#Plot the final result and exact solution
+plt.plot(X,u_j,'rx',label='num')
+plt.plot(X, 0.2*np.ones(X.size), 'k--', linewidth = 1)
+#
+plt.plot(xx,u_exact(xx,T),'b-',label='exact')
+plt.xlabel('X')
+plt.ylabel('u(x,0.5)')
+plt.legend(loc='upper right')
+plt.show()
+
+#
+# Errors = []
+# Errors1 = []
+# delt = []
 # for n in range(25):
 #     tempdel = T/mt
 #     X, u_j = finite_diff(u_I, mx, mt, T, L, discretisation='cn')
@@ -313,12 +365,3 @@ delt = []
 # print("Slope for bwd:", slope1)
 
 # print(ah)
-#Plot the final result and exact solution
-plt.plot(X,u_j,'rx',label='num')
-plt.plot(X, 0.2*np.ones(X.size), 'k--', linewidth = 1)
-#
-plt.plot(xx,u_exact(xx,T),'b-',label='exact')
-plt.xlabel('X')
-plt.ylabel('u(x,0.5)')
-plt.legend(loc='upper right')
-plt.show()
