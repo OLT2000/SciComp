@@ -186,7 +186,6 @@ def cn_main(max_x, max_t, T, L, pde, bcs, bc_type=None):
     deltax = x[1] - x[0]            # gridspacing in x
     deltat = t[1] - t[0]            # gridspacing in t
     lmbda = kappa*deltat/(deltax**2)
-    print("Lambda=", lmbda)
     if bc_type == None:
         print("Please choose a boundary condition type")
         bc_type = input("dirichlet, or neumann")
@@ -247,7 +246,8 @@ def cn_main(max_x, max_t, T, L, pde, bcs, bc_type=None):
             jarray[:] = jarray1[:]
 
         return x, jarray
-
+    else:
+        raise ValueError('Boundary conditions must be either dirichlet or neumann')
 
 
 # def fd_method(pde, max_x, max_t, T, L, discretisation = None, verbose = False):
@@ -278,21 +278,21 @@ def cn_main(max_x, max_t, T, L, pde, bcs, bc_type=None):
 #         return -1
 
 
-def finite_diff(pde, max_x, max_t, T, L, discretisation = None):
+def finite_diff(pde, max_x, max_t, T, L, bcs, discretisation = None, bc_type = None):
     if discretisation == None:
         print("Please choose a Discretisation")
         discretisation = input("forward, backward or cn?")
 
     if discretisation == 'forward':
-        discretisation = forward_neumann
+        discretisation = forward_euler_main
     elif discretisation == 'backward':
-        discretisation = backwardseuler
+        discretisation = backwards_euler_main
     elif discretisation == 'cn':
-        discretisation = cranknicholson
+        discretisation = cn_main
     else:
         print("Invalid discretisation\nPlease choose forward, backward, or cn")
         return -1
-    x, jarr = discretisation(max_x, max_t, T, L, pde)
+    x, jarr = discretisation(max_x, max_t, T, L, pde, bcs, bc_type)
     return x, jarr
 
 
@@ -305,9 +305,9 @@ def get_slope(error, delta):
 
 
 L = 1.0         # length of spatial domain
-T = 0.1
+T = 0.2
 # Set numerical parameters
-mx = 10   # number of gridpoints in space
+mx = 50   # number of gridpoints in space
 mt = 1000   # number of gridpoints in time
 
 # X, u_j = forwardeuler(mx, mt, T, L)
@@ -315,13 +315,11 @@ mt = 1000   # number of gridpoints in time
 # X, u_j = cranknicholson(mx, mt, T, L, u_I)
 # X, u_j = fwdmatrix(mx, mt, T, L)
 
-# X, u_j = finite_diff(u_fx, mx, mt, T, L, discretisation='forward')
 b1test = lambda x: 0
 b2test = lambda x: 0
 
-# X, u_j = forward_euler_main(mx, mt, T, L, u_fx, [b1test, b2test])
-X, u_j = cn_main(mx, mt, T, L, u_fx, [b1test, b2test], bc_type='neumann')
-# X, u_j = backwards_euler_main(mx, mt, T, L, u_fx, [b1test, b2test], bc_type='neumann')
+X, u_j = finite_diff(u_fx, mx, mt, T, L, [b1test, b2test])
+
 xx = np.linspace(0, L, 250)
 U_Exact = u_exact(xx, T)
 
