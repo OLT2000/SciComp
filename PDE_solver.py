@@ -1,4 +1,4 @@
-import numpy as np
+import numpy as np, types
 import matplotlib.pyplot as plt
 from math import pi, log2
 import scipy as sp
@@ -6,15 +6,18 @@ import scipy.sparse
 from scipy.sparse.linalg import spsolve
 from sklearn.linear_model import LinearRegression
 
-# import scipy.sparse as sp
 
 # Set problem parameters/functions
-kappa = 1.0   # diffusion constant
-     # total time to solve for
+kappa = 1/10  # diffusion constant
+# total time to solve for
 def u_I(x):
     # initial temperature distribution
     y = np.sin(pi*x/L)
     return y
+
+
+def u_fx(x):
+    return x*(1 - x)
 
 
 def u_exact(x, t):
@@ -23,80 +26,119 @@ def u_exact(x, t):
     return y
 
 
-# u at next time step
+def forward_euler_main(max_x, max_t, T, L, pde, bcs, bc_type=None):
+    bc1 = bcs[0]
+    bc2 = bcs[1]
+    if type(bc1) != types.FunctionType or type(bc2) != types.FunctionType:
+        raise TypeError('Both Boundary Conditions must be of type function (lambda or defined), even if 0')
+    x = np.linspace(0, L, max_x+1)     # mesh points in space
+    t = np.linspace(0, T, max_t+1)
+    jarray = np.zeros(x.size)        # u at current time step
+    jarray1 = np.zeros(x.size)
 
-def forwardeuler(max_x, max_t, T, L):
-    # Set up the numerical environment variables
+    #Calculate initial conditions
+    for i in range(0, max_x+1):
+        jarray[i] = pde(x[i])
+
+    deltax = x[1] - x[0]            # gridspacing in x
+    deltat = t[1] - t[0]            # gridspacing in t
+    lmbda = kappa*deltat/(deltax**2)
+    if lmbda >= 0.5:
+        raise ValueError('Forward Euler is conditionally stable for lambda < 0.5, your lambda is:', lmbda)
+
+
+    if bc_type == None:
+        print("Please choose a boundary condition type")
+        bc_type = input("dirichlet, or neumann")
+
+    if bc_type == 'neumann':
+        a = lmbda * np.ones(max_x+1)
+        b = (1-2*lmbda)*np.ones(max_x+1)
+        c = lmbda * np.ones(max_x+1)
+        a[-2] = c[1] = 2*lmbda
+        mtrx = np.array([a, b, c])
+        pos = [-1, 0, 1]
+        A_FE = sp.sparse.spdiags(mtrx, pos, max_x+1, max_x+1).todense()
+        for j in range(max_t):
+            #Matrix calculations
+            b_array = np.zeros(jarray.size)
+            b_array[0] = bc1(t[j])
+            b_array[-1] = bc2(t[j])
+            jarray1 = np.dot(A_FE, jarray) + 2*lmbda*deltax*b_array
+
+            # Save u_j at time t[j+1]
+            jarray[:] = jarray1[:]
+        return x, jarray
+
+    elif bc_type == 'dirichlet':
+        a = lmbda * np.ones(max_x-1)
+        b = (1-2*lmbda)*np.ones(max_x-1)
+        c = a
+        mtrx = np.array([a, b, c])
+        pos = [-1, 0, 1]
+        A_FE = sp.sparse.spdiags(mtrx, pos, max_x-1, max_x-1).todense()
+        for j in range(max_t):
+            #Matrix calculations
+            b_array = np.zeros(jarray[1:-1].size)
+            b_array[0] = bc1(t[j])
+            b_array[-1] = bc2(t[j])
+            jarray1[1:-1] = np.dot(A_FE, jarray[1:-1]) + lmbda*b_array
+            # Set up BCs
+            jarray1[0] = bc1(t[j])
+            jarray1[max_x] = bc2(t[j])
+            # Save u_j at time t[j+1]
+            jarray[:] = jarray1[:]
+        return x, jarray
+    else:
+        raise ValueError('Boundary conditions must be either dirichlet or neumann')
+
+
+
+
+def forward_neumann(max_x, max_t, T, L, pde):
+
     x = np.linspace(0, L, max_x+1)     # mesh points in space
     t = np.linspace(0, T, max_t+1)
     jarray = np.zeros(x.size)        # u at current time step
     jarray1 = np.zeros(x.size)
     deltax = x[1] - x[0]            # gridspacing in x
     deltat = t[1] - t[0]            # gridspacing in t
-    lmbda = kappa*deltat/(deltax**2)    # mesh fourier number
-    print("deltax=",deltax)
-    print("deltat=",deltat)
-    print("lambda=",lmbda)
-    # Set initial condition
-    for i in range(0, mx+1):
-        jarray[i] = u_I(x[i]) #Calcs u_I at each x point
-    print(jarray)
-    # Solve the PDE: loop over all time points
-    for j in range(0, max_t):
-        # Forward Euler timestep at inner mesh points
-        # PDE discretised at position x[i], time t[j]
-        for i in range(1, max_x):
-            jarray1[i] = jarray[i] + lmbda*(jarray[i-1] - 2*jarray[i] + jarray[i+1])
-
-        # Boundary conditions
-        jarray1[0] = 0; jarray1[mx] = 0
-
-        # Save u_j at time t[j+1]
-        # print("b4", jarray == jarray1)
-        jarray[:] = jarray1[:]
-        # print("aft", jarray == jarray1)
-
-    return x, jarray
-
-
-def fwdmatrix(max_x, max_t, T, L, pde):
-    bc1 = lambda t: 0 #lambda function w.r.t t for boundary condition
-    bc2 = lambda t: 0
-
-    x = np.linspace(0, L, max_x+1)     # mesh points in space
-    t = np.linspace(0, T, max_t+1)
-    jarray = np.zeros(x.size)        # u at current time step
-    jarray1 = np.zeros(x.size)
-    deltax = x[1] - x[0]            # gridspacing in x
-    deltat = t[1] - t[0]            # gridspacing in t
-    lmbda = kappa*deltat/(deltax**2)    # mesh fourier number
-    a = lmbda * np.ones(max_x-1)
-    b = (1-2*lmbda)*np.ones(max_x-1)
-    c = a
+    lmbda = kappa*deltat/(deltax**2) # mesh fourier number
+    if lmbda >= 0.5:
+        raise ValueError('Forward Euler is conditionally stable for lambda < 0.5, your lambda is:', lmbda)
+    a = lmbda * np.ones(max_x+1)
+    b = (1-2*lmbda)*np.ones(max_x+1)
+    c = lmbda * np.ones(max_x+1)
+    a[-2] = c[1] = 2*lmbda
     mtrx = np.array([a, b, c])
     pos = [-1, 0, 1]
-    A_FE = sp.sparse.spdiags(mtrx, pos, max_x-1, max_x-1).todense()
+    A_FE = sp.sparse.spdiags(mtrx, pos, max_x+1, max_x+1).todense()
+    print(A_FE)
     print("deltax=",deltax)
     print("deltat=",deltat)
     print("lambda=",lmbda)
     for i in range(0, max_x+1):
         jarray[i] = pde(x[i]) #Calcs u_I at each x point
-    # print(jarray)
-    for j in range(0, max_t):
-        jarray1[1:-1] = np.array(A_FE.dot(jarray[1:-1]))[0]
+    for j in range(max_t):
+        #Matrix calculations
+        b_array = np.zeros(jarray.size)
+        b_array[0] = bc_0(t[j])
+        b_array[-1] = bc_L(t[j])
+        jarray1 = np.dot(A_FE, jarray) + 2*lmbda*deltax*b_array
 
-        jarray1[0] = bc1(t[j])
-        jarray1[max_x] = bc2(t[j])
         # Save u_j at time t[j+1]
         jarray[:] = jarray1[:]
     return x, jarray
 
 
 def backwardseuler(max_x, max_t, T, L, pde, verbose = False):
+    bc1 = lambda t: 0 #lambda function w.r.t t for boundary condition
+    bc2 = lambda t: 0
     x = np.linspace(0, L, max_x+1)     # mesh points in space
     t = np.linspace(0, T, max_t+1)
     jarray = np.zeros(x.size)        # u at current time step
     jarray1 = np.zeros(x.size)      # u at j+1 timestep
+    bjp1 = np.zeros(jarray[1:-1].size)
     deltax = x[1] - x[0]            # gridspacing in x
     deltat = t[1] - t[0]            # gridspacing in t
     lmbda = kappa*deltat/(deltax**2)    # mesh fourier number
@@ -113,14 +155,14 @@ def backwardseuler(max_x, max_t, T, L, pde, verbose = False):
     for i in range(0, max_x+1):
         jarray[i] = pde(x[i]) #Calcs u_I at each x point
     for j in range(0, max_t):
-        # print()
-        # print(jarray.shape, A_BE.shape)
-        jarray1[1:-1] = scipy.sparse.linalg.spsolve(A_BE, jarray[1:-1])
+        bjp1[0] = lmbda*bc1(t[j+1])
+        bjp1[-1] = lmbda*bc2(t[j+1])
+        jarray1[1:-1] = scipy.sparse.linalg.spsolve(A_BE, jarray[1:-1]+bjp1)
         # jarray1 = np.linalg.solve(A_BE, jarray)
 
         #set boundary conditions
-        jarray1[0] = 0
-        jarray1[max_x] = 0
+        jarray1[0] = bc1(t[j])
+        jarray1[-1] = bc2(t[j])
 
         # Save u_j at time t[j+1]
         jarray[:] = jarray1[:]
@@ -128,6 +170,8 @@ def backwardseuler(max_x, max_t, T, L, pde, verbose = False):
 
 
 def cranknicholson(max_x, max_t, T, L, pde, verbose = False):
+    bc1 = lambda time: 0
+    bc2 = lambda time: 0
     x = np.linspace(0, L, max_x+1)
     t = np.linspace(0, T, max_t+1)
     jarray = np.zeros(x.size)      # u at current time step
@@ -163,32 +207,32 @@ def cranknicholson(max_x, max_t, T, L, pde, verbose = False):
     return x, jarray
 
 
-def fd_method(pde, max_x, max_t, T, L, discretisation = None, verbose = False):
-    x = np.linspace(0, L, max_x+1)     # mesh points in space
-    t = np.linspace(0, T, max_t+1)
-    jarray = np.zeros(x.size)      # u at current time step
-    jarray1 = np.zeros(x.size)
-    deltax = x[1] - x[0]            # gridspacing in x
-    deltat = t[1] - t[0]            # gridspacing in t
-    lmbda = kappa*deltat/(deltax**2)    # mesh fourier number
-    if verbose == True:
-        print("deltax=",deltax)
-        print("deltat=",deltat)
-        print("lambda=",lmbda)
-    for i in range(0, max_x+1):
-        jarray[i] = pde(x[i]) #Calcs u_I at each x point
-    if discretisation == None:
-        print("Please choose a Discretisation")
-        discretisation = input("forward, backward or cn?")
-    if discretisation == 'forward':
-        discretisation = fwdmatrix
-    elif discretisation == 'backward':
-        discretisation = backwardseuler
-    elif discretisation == 'cn':
-        discretisation = cranknicholson
-    else:
-        print("Invalid discretisation\nPlease choose forward, backward, or cn")
-        return -1
+# def fd_method(pde, max_x, max_t, T, L, discretisation = None, verbose = False):
+#     x = np.linspace(0, L, max_x+1)     # mesh points in space
+#     t = np.linspace(0, T, max_t+1)
+#     jarray = np.zeros(x.size)      # u at current time step
+#     jarray1 = np.zeros(x.size)
+#     deltax = x[1] - x[0]            # gridspacing in x
+#     deltat = t[1] - t[0]            # gridspacing in t
+#     lmbda = kappa*deltat/(deltax**2)    # mesh fourier number
+#     if verbose == True:
+#         print("deltax=",deltax)
+#         print("deltat=",deltat)
+#         print("lambda=",lmbda)
+#     for i in range(0, max_x+1):
+#         jarray[i] = pde(x[i]) #Calcs u_I at each x point
+#     if discretisation == None:
+#         print("Please choose a Discretisation")
+#         discretisation = input("forward, backward or cn?")
+#     if discretisation == 'forward':
+#         discretisation = fwdmatrix
+#     elif discretisation == 'backward':
+#         discretisation = backwardseuler
+#     elif discretisation == 'cn':
+#         discretisation = cranknicholson
+#     else:
+#         print("Invalid discretisation\nPlease choose forward, backward, or cn")
+#         return -1
 
 
 def finite_diff(pde, max_x, max_t, T, L, discretisation = None):
@@ -197,7 +241,7 @@ def finite_diff(pde, max_x, max_t, T, L, discretisation = None):
         discretisation = input("forward, backward or cn?")
 
     if discretisation == 'forward':
-        discretisation = fwdmatrix
+        discretisation = forward_neumann
     elif discretisation == 'backward':
         discretisation = backwardseuler
     elif discretisation == 'cn':
@@ -210,15 +254,15 @@ def finite_diff(pde, max_x, max_t, T, L, discretisation = None):
 
 
 def get_slope(error, delta):
-    X= np.array(delta)
+    X = np.array(delta)
     Y = np.array(error)
     model = LinearRegression()
-    model.fit(X.reshape(-1,1), Y)
+    model.fit(X.reshape(-1, 1), Y)
     return model.coef_
 
 
 L = 1.0         # length of spatial domain
-T = 0.5
+T = 0.1
 # Set numerical parameters
 mx = 50   # number of gridpoints in space
 mt = 1000   # number of gridpoints in time
@@ -228,8 +272,12 @@ mt = 1000   # number of gridpoints in time
 # X, u_j = cranknicholson(mx, mt, T, L, u_I)
 # X, u_j = fwdmatrix(mx, mt, T, L)
 
-X, u_j = finite_diff(u_I, mx, mt, T, L)
-xx = np.linspace(0,L,250)
+# X, u_j = finite_diff(u_fx, mx, mt, T, L, discretisation='forward')
+b1test = lambda x: 0
+b2test = lambda x: 0
+
+X, u_j = forward_euler_main(mx, mt, T, L, u_fx, [b1test, b2test])
+xx = np.linspace(0, L, 250)
 U_Exact = u_exact(xx, T)
 Errors = []
 Errors1 = []
@@ -267,6 +315,7 @@ delt = []
 # print(ah)
 #Plot the final result and exact solution
 plt.plot(X,u_j,'rx',label='num')
+plt.plot(X, 0.2*np.ones(X.size), 'k--', linewidth = 1)
 #
 plt.plot(xx,u_exact(xx,T),'b-',label='exact')
 plt.xlabel('X')
