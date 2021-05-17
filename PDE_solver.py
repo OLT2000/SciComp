@@ -218,14 +218,12 @@ def cn_main(max_x, max_t, T, L, pde, bcs, bc_type=None):
         a = -(lmbda/2) * np.ones(max_x+1)
         a[-2] = -lmbda
         b = (1+lmbda)*np.ones(max_x+1)
-        b[0] = 1-lmbda
         c = -(lmbda/2) * np.ones(max_x+1)
-        c[1] = lmbda
+        c[1] = -lmbda
 
         a_b = (lmbda/2) * np.ones(max_x+1)
         a_b[-2] = lmbda
         b_b = (1-lmbda)*np.ones(max_x+1)
-        b_b[0] = 1+lmbda
         c_b = (lmbda/2) * np.ones(max_x+1)
         c_b[1] = lmbda
 
