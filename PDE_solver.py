@@ -8,7 +8,7 @@ from sklearn.linear_model import LinearRegression
 
 
 # Set problem parameters/functions
-kappa = 1/10  # diffusion constant
+kappa = 1  # diffusion constant
 # total time to solve for
 def u_I(x):
     # initial temperature distribution
@@ -204,11 +204,24 @@ def cn_main(max_x, max_t, T, L, pde, bcs, bc_type=None):
             jarray[i] = pde(x[i]) #Calcs u_I at each x point
         # print(jarray.reshape(1, -1))
         for j in range(max_t):
-            b_array = np.array(B_CN.dot(jarray[1:-1]))
+            pj = bc1(t[j])
+            pj1 = bc1(t[j+1])
+            qj = bc2(t[j])
+            qj1 = bc2(t[j+1])
+            b_array = np.dot(B_CN, jarray[1:-1])
+            bc_array = np.zeros(b_array.size)
+            bc_array[0] = pj + pj1
+            bc_array[-1] = qj + qj1
+            b_array += bc_array
+            #b_array is of the form matrix due to dot function, hence convert it to an array
+            b_array = np.asarray(b_array)
+
             jarray1[1:-1] = scipy.sparse.linalg.spsolve(A_CN, b_array[0])
+
             #BCs
-            jarray1[0] = 0
-            jarray1[max_x] = 0
+            jarray1[0] = pj
+            jarray1[max_x] = qj
+
             # Save u_j at time t[j+1]
             jarray[:] = jarray1[:]
         return x, jarray
@@ -250,34 +263,6 @@ def cn_main(max_x, max_t, T, L, pde, bcs, bc_type=None):
         raise ValueError('Boundary conditions must be either dirichlet or neumann')
 
 
-# def fd_method(pde, max_x, max_t, T, L, discretisation = None, verbose = False):
-#     x = np.linspace(0, L, max_x+1)     # mesh points in space
-#     t = np.linspace(0, T, max_t+1)
-#     jarray = np.zeros(x.size)      # u at current time step
-#     jarray1 = np.zeros(x.size)
-#     deltax = x[1] - x[0]            # gridspacing in x
-#     deltat = t[1] - t[0]            # gridspacing in t
-#     lmbda = kappa*deltat/(deltax**2)    # mesh fourier number
-#     if verbose == True:
-#         print("deltax=",deltax)
-#         print("deltat=",deltat)
-#         print("lambda=",lmbda)
-#     for i in range(0, max_x+1):
-#         jarray[i] = pde(x[i]) #Calcs u_I at each x point
-#     if discretisation == None:
-#         print("Please choose a Discretisation")
-#         discretisation = input("forward, backward or cn?")
-#     if discretisation == 'forward':
-#         discretisation = fwdmatrix
-#     elif discretisation == 'backward':
-#         discretisation = backwardseuler
-#     elif discretisation == 'cn':
-#         discretisation = cranknicholson
-#     else:
-#         print("Invalid discretisation\nPlease choose forward, backward, or cn")
-#         return -1
-
-
 def finite_diff(pde, max_x, max_t, T, L, bcs, discretisation = None, bc_type = None):
     if discretisation == None:
         print("Please choose a Discretisation")
@@ -305,20 +290,16 @@ def get_slope(error, delta):
 
 
 L = 1.0         # length of spatial domain
-T = 0.2
+T = 0.1
 # Set numerical parameters
 mx = 50   # number of gridpoints in space
 mt = 1000   # number of gridpoints in time
 
-# X, u_j = forwardeuler(mx, mt, T, L)
-# X, u_j = backwardseuler(mx, mt, T, L, u_I)
-# X, u_j = cranknicholson(mx, mt, T, L, u_I)
-# X, u_j = fwdmatrix(mx, mt, T, L)
 
-b1test = lambda x: 0
-b2test = lambda x: 0
+b1test = lambda t: 0
+b2test = lambda t: 0
 
-X, u_j = finite_diff(u_fx, mx, mt, T, L, [b1test, b2test])
+X, u_j = finite_diff(u_fx, mx, mt, T, L, [b1test, b2test], bc_type='neumann')
 
 xx = np.linspace(0, L, 250)
 U_Exact = u_exact(xx, T)
@@ -328,7 +309,7 @@ U_Exact = u_exact(xx, T)
 plt.plot(X,u_j,'rx',label='num')
 plt.plot(X, 0.2*np.ones(X.size), 'k--', linewidth = 1)
 #
-plt.plot(xx,u_exact(xx,T),'b-',label='exact')
+# plt.plot(xx,u_exact(xx,T),'b-',label='exact')
 plt.xlabel('X')
 plt.ylabel('u(x,0.5)')
 plt.legend(loc='upper right')
