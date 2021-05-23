@@ -1,10 +1,11 @@
 import numpy as np, types
 import matplotlib.pyplot as plt
-from math import pi, log2
+from math import pi, log2, e
 import scipy as sp
 import scipy.sparse
 from scipy.sparse.linalg import spsolve
 from sklearn.linear_model import LinearRegression
+from scipy.optimize import root, fsolve
 
 
 # Set problem parameters/functions
@@ -12,7 +13,8 @@ kappa = 1  # diffusion constant
 # total time to solve for
 def u_I(x):
     # initial temperature distribution
-    y = np.sin(pi*x/L)
+    # y = np.sin(pi*x/L)
+    y = e**(-16*(x**2))
     return y
 
 
@@ -26,7 +28,7 @@ def u_exact(x, t):
     return y
 
 
-def forward_euler_main(max_x, max_t, T, L, pde, bcs, bc_type=None):
+def forward_euler_main(max_x, max_t, T, L, pde, bcs, bc_type=None, ):
     bc1 = bcs[0]
     bc2 = bcs[1]
     if type(bc1) != types.FunctionType or type(bc2) != types.FunctionType:
@@ -173,7 +175,7 @@ def cn_main(max_x, max_t, T, L, pde, bcs, bc_type=None):
     bc1 = bcs[0]
     bc2 = bcs[1]
     if type(bc1) != types.FunctionType or type(bc2) != types.FunctionType:
-        raise TypeError('Both Boundary Conditions must be of type function (lambda or defined), even if 0')
+        raise TypeError('Both Boundary Conditions must be of type function (lambda or defined), even if arbitrarily constant')
     x = np.linspace(0, L, max_x+1)     # mesh points in space
     t = np.linspace(0, T, max_t+1)
     jarray = np.zeros(x.size)        # u at current time step
@@ -289,33 +291,88 @@ def get_slope(error, delta):
     return model.coef_
 
 
-L = 1.0         # length of spatial domain
-T = 0.1
+L = 5       # length of spatial domain
+T = 5
 # Set numerical parameters
 mx = 50   # number of gridpoints in space
-mt = 1000   # number of gridpoints in time
+mt = 1000  # number of gridpoints in time
 
+x = np.linspace(0, L, mx+1)     # mesh points in space
+t = np.linspace(0, T, mt+1)
+jarray = np.zeros(x.size, dtype=float)        # u at current time step
+jarray1 = np.zeros(x.size, dtype= float)
+
+#Calculate initial conditions
+for i in range(0, mx+1):
+    jarray[i] = u_I(x[i])
+
+
+deltax = x[1] - x[0]            # gridspacing in x
+deltat = t[1] - t[0]            # gridspacing in t
+lmbda = kappa*deltat/(deltax**2)
+
+print(deltat, deltax, lmbda)
+
+a = -(lmbda/2) * np.ones(mx-1)
+b = (1+lmbda)*np.ones(mx-1)
+c = a
+b_b = (1-lmbda)*np.ones(mx-1)
+
+mtrx_a = np.array([a, b, c])
+mtrx_b = np.array([-a, b_b, -c])
+mtrx_c = np.array([np.ones(mx-1), -2*np.ones(mx-1), np.ones(mx-1)])
+pos = [-1, 0, 1]
+A_CN = sp.sparse.spdiags(mtrx_a, pos, mx-1, mx-1).todense()
+B_CN = sp.sparse.spdiags(mtrx_b, pos, mx-1, mx-1).todense()
+D_CN = sp.sparse.spdiags(mtrx_c, pos, mx-1, mx-1).todense()
+
+heat = lambda u: 1 - u**2
+
+def test(uj1):
+    D1 = np.array(np.dot(D_CN, uj1))[0]
+    F1 = heat(uj1)
+    j1terms = uj1 - (lmbda/2)*D1 - (deltat/2)*F1
+
+    D = np.array(np.dot(D_CN, jarray[1:-1]))[0]
+    F = heat(jarray[1:-1])
+    jterms = jarray[1:-1] + (lmbda/2)*D + (deltat/2)*F
+    sol = j1terms - jterms
+    return sol
+
+
+for step in range(mt):
+    rhs = np.array(np.dot(B_CN, jarray[1:-1]))
+    jarray1[1:-1] = rhs + deltat*heat(jarray[1:-1])
+
+    # jarray1[1:-1] = sp.sparse.linalg.spsolve(A_CN, rhs[0])
+    jarray1[0] = 0
+    jarray1[-1] = 0
+
+    jarray[:] = jarray1[:]
+
+plt.plot(x, jarray)
+plt.show()
 
 b1test = lambda t: 0
 b2test = lambda t: 0
 
-X, u_j = finite_diff(u_fx, mx, mt, T, L, [b1test, b2test], bc_type='neumann')
-
-xx = np.linspace(0, L, 250)
-U_Exact = u_exact(xx, T)
-
-
-#Plot the final result and exact solution
-plt.plot(X,u_j,'rx',label='num')
-plt.plot(X, 0.2*np.ones(X.size), 'k--', linewidth = 1)
+X, u_j = finite_diff(u_I, mx, mt, T, L, [b1test, b2test], bc_type='dirichlet', discretisation='cn')
 #
-# plt.plot(xx,u_exact(xx,T),'b-',label='exact')
-plt.xlabel('X')
-plt.ylabel('u(x,0.5)')
-plt.legend(loc='upper right')
+# xx = np.linspace(0, L, 250)
+# U_Exact = u_exact(xx, T)
+#
+#
+# #Plot the final result and exact solution
+plt.plot(X,u_j,'rx',label='num')
+# plt.plot(X, 0.2*np.ones(X.size), 'k--', linewidth = 1)
+# #
+# # plt.plot(xx,u_exact(xx,T),'b-',label='exact')
+# plt.xlabel('X')
+# plt.ylabel('u(x,0.5)')
+# plt.legend(loc='upper right')
 plt.show()
 
-#
+
 # Errors = []
 # Errors1 = []
 # delt = []
