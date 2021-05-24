@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from functions_to_solve import function, predatorprey
 from math import log10, log2
 from math import e as exp
 
@@ -11,7 +12,7 @@ def euler_step(x_i, h, t_i, fn):
     :param h: step size
     :param t_i: initial time step
     :param fn: the function in x, t computing derivative
-    :return: new x, and t values, one step in forward.
+    :return: new x, and t values, one step forward in time.
     """
     deriv = np.array(fn(x_i, t_i))
     x_i_1 = x_i + h*deriv #perform euler step
@@ -80,7 +81,8 @@ def solve_ode(x1, timespan, nsteps, h, fn, solver=None):
     elif solver == 'RK4':
         step_fn = rk4_step
     else:
-        raise KeyError('Invalid solver. Please input Euler for EUler\'s method, or RK4 for Runge-Kutta')
+        raise KeyError('Invalid solver. Please input Euler for Euler\'s method, or RK4 for Runge-Kutta')
+
     tstart, tend = timespan
     tarray = np.linspace(tstart, tend, nsteps)
     x_array = [x1]
@@ -88,12 +90,8 @@ def solve_ode(x1, timespan, nsteps, h, fn, solver=None):
         t1 = tarray[i]
         t2 = tarray[i+1]
         x_i_1 = solve_to(x_array[-1], [t1, t2], h, fn, step_fn)
-        # print("x1", x_i_1)
         x_array.append(x_i_1)
-    if type(x1) == int: #If we have a 1d system, ICs will be int not list
-        soln = np.reshape(x_array, (-1, 1))
-    else:
-        soln = np.reshape(x_array, (-1, len(x1)))
+    soln = np.array(x_array)
     return soln.transpose(), tarray
 
 
@@ -151,27 +149,6 @@ def plot_solution(t, x, v):
     return fig
 
 
-def predatorprey(X, t):
-    # print(X)
-    a = 1
-    b = 0.25
-    d = 0.1
-    x, y = X
-    dx = x*(1 - x) - (a*x*y)/(d+x)
-    dy = b*y*(1-(y/x))
-
-    return [dx, dy]
-
-
-def hopf(U, t):
-    u1, u2 = U
-    beta = 2
-    sigma = -1
-    du1 = beta*u1 - u2 + sigma*u1*(u1**2 + u2**2)
-    du2 = u1 + beta*u2 + sigma*u2*(u1**2 + u2**2)
-    return np.array([du1, du2])
-
-
 # if __name__ == "__main__":
 
 #
@@ -193,7 +170,7 @@ Pred-Prey code
 # """
 xy0 = [0.27015621, 0.27015621]
 t0 = 0
-tf = 4000
+tf = 100
 span = [t0, tf]
 iters = 10000
 result, tarray = solve_ode(xy0, span, iters, 0.01, predatorprey, 'RK4')
@@ -206,14 +183,14 @@ plot_solution(tarray, x, y)
 """
 1D func code
 """
-# x0 = 1
-# t0 = 0
-# tf = 10
-# iters = 200
+x0 = 1
+t0 = 0
+tf = 10
+iters = 200
 # tarray = np.linspace(t0, tf, iters)
-# result = solve_ode(x0, 0, tf, iters, 0.01, function)
-# x = result
-# plot_solution1d(tarray, x)
+result, tarray = solve_ode(x0, [0, tf], iters, 0.01, function)
+x = result
+plot_solution1d(tarray, x)
 
 """
 Nd func code"""
