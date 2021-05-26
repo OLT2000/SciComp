@@ -29,7 +29,7 @@ def u_exact(x, t):
     return y
 
 
-def forward_euler_main(max_x, max_t, T, L, pde, bcs, bc_type=None):
+def forward_euler_main(max_x, max_t, T, L, pde, bcs, heat_source, bc_type=None):
     bc1 = bcs[0]
     bc2 = bcs[1]
     if type(bc1) != types.FunctionType or type(bc2) != types.FunctionType:
@@ -89,7 +89,8 @@ def forward_euler_main(max_x, max_t, T, L, pde, bcs, bc_type=None):
             b_array = np.zeros(jarray[1:-1].size)
             b_array[0] = bc1(t[j])
             b_array[-1] = bc2(t[j])
-            jarray1[1:-1] = np.dot(A_FE, jarray[1:-1]) + lmbda*b_array
+            jarray1[1:-1] = np.dot(A_FE, jarray[1:-1]) + lmbda*b_array + deltat*heat_source(x[1:-1], t[j])
+
             # Set up BCs
             jarray1[0] = bc1(t[j])
             jarray1[max_x] = bc2(t[j])
@@ -199,7 +200,7 @@ def CN_periodic(max_x, max_t, T, L, pde):
     return x, jarray
 
 
-def backwards_euler_main(max_x, max_t, T, L, pde, bcs, bc_type=None):
+def backwards_euler_main(max_x, max_t, T, L, pde, bcs, heat_source, bc_type=None):
     bc1 = bcs[0]
     bc2 = bcs[1]
     if type(bc1) != types.FunctionType or type(bc2) != types.FunctionType:
@@ -235,7 +236,7 @@ def backwards_euler_main(max_x, max_t, T, L, pde, bcs, bc_type=None):
             b_array = np.zeros(jarray[1:-1].size)
             b_array[0] = p_j1
             b_array[-1] = q_j1
-            jarray1[1:-1] = scipy.sparse.linalg.spsolve(A_BE, jarray[1:-1]+lmbda*b_array)
+            jarray1[1:-1] = scipy.sparse.linalg.spsolve(A_BE, jarray[1:-1]+lmbda*b_array+deltat*heat_source(x[1:-1], t[j]))
 
             #set boundary conditions
             jarray1[0] = p_j1
@@ -279,7 +280,7 @@ def backwards_euler_main(max_x, max_t, T, L, pde, bcs, bc_type=None):
         raise ValueError('Boundary conditions must be either dirichlet or neumann')
 
 
-def cn_main(max_x, max_t, T, L, pde, bcs, bc_type=None):
+def cn_main(max_x, max_t, T, L, pde, bcs, heat_source, bc_type=None):
     bc1 = bcs[0]
     bc2 = bcs[1]
     if type(bc1) != types.FunctionType or type(bc2) != types.FunctionType:
@@ -322,7 +323,7 @@ def cn_main(max_x, max_t, T, L, pde, bcs, bc_type=None):
             bc_array = np.zeros(b_array.size)
             bc_array[0] = pj + pj1
             bc_array[-1] = qj + qj1
-            b_array += bc_array
+            b_array += (lmbda*bc_array + deltat*heat_source(x[1:-1], t[j]))
             #b_array is of the form matrix due to dot function, hence convert it to an array
             b_array = np.asarray(b_array)
 
@@ -563,15 +564,15 @@ T = 0.1
 
 mx = 30
 mt = 2000
-
+rhs_F = lambda x, t: x
 
 # X, u_j = finite_diff(u_fx, mx, mt, T, L, [b1test, b2test], bc_type='neumann', discretisation='backward')
 # X1, uj1 = finite_diff(, discretisation='forward')
 # X2, uj2 = finite_diff(u_fx, mx, mt, T, L, [b1test, b2test], bc_type='neumann', discretisation='cn')
 # #Plot the final result and exact solution
-X3, uj3 = FE_periodic(mx, mt, T, L, u_fx)
-X4, uj4 = BE_periodic(mx, mt, T, L, u_fx)
-X5, uj5 = CN_periodic(mx, mt, T, L, u_fx)
+X3, uj3 = forward_euler_main(mx, mt, T, L, u_fx, [b1test, b2test], rhs_F, bc_type='dirichlet')
+X4, uj4 = backwards_euler_main(mx, mt, T, L, u_fx, [b1test, b2test], rhs_F, bc_type='dirichlet')
+X5, uj5 = cn_main(mx, mt, T, L, u_fx, [b1test, b2test], rhs_F, bc_type='dirichlet')
 
 xx = np.linspace(0,L,250)
 # plt.plot(xx,u_exact(xx,T),'b-',label='exact')
