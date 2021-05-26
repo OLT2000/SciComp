@@ -100,11 +100,7 @@ def forward_euler_main(max_x, max_t, T, L, pde, bcs, bc_type=None):
         raise ValueError('Boundary conditions must be either dirichlet or neumann')
 
 
-def FE_periodic(max_x, max_t, T, L, pde, bc):
-    # bc1 = bcs[0]
-    # bc2 = bcs[1]
-    if type(bc) != types.FunctionType:
-        raise TypeError('Boundary Conditions must be of type function (lambda or defined), even if constant')
+def FE_periodic(max_x, max_t, T, L, pde):
     x = np.linspace(0, L, max_x+1)     # mesh points in space
     t = np.linspace(0, T, max_t+1)
     jarray = np.zeros(x.size)        # u at current time step
@@ -117,8 +113,6 @@ def FE_periodic(max_x, max_t, T, L, pde, bc):
     #Calculate initial conditions
     for i in range(0, max_x+1):
         jarray[i] = pde(x[i])
-
-
     if lmbda >= 0.5:
         raise ValueError('Forward Euler is conditionally stable for lambda < 0.5, your lambda is:', lmbda)
     a = lmbda * np.ones(max_x)
@@ -129,9 +123,75 @@ def FE_periodic(max_x, max_t, T, L, pde, bc):
     A_FE = sp.sparse.spdiags(mtrx, pos, max_x, max_x).todense()
     A_FE[0, max_x-1] = A_FE[max_x-1, 0] = lmbda
     for j in range(max_t):
-        # pj = bc(t[j])
         #Matrix calculations
         jarray1[:-1] = np.dot(A_FE, jarray[:-1])
+        # Set up BCs
+        jarray1[-1] = jarray[0]
+        # Save u_j at time t[j+1]
+        jarray[:] = jarray1[:]
+    return x, jarray
+
+
+def BE_periodic(max_x, max_t, T, L, pde):
+    x = np.linspace(0, L, max_x+1)     # mesh points in space
+    t = np.linspace(0, T, max_t+1)
+    jarray = np.zeros(x.size)        # u at current time step
+    jarray1 = np.zeros(x.size)
+    deltax = x[1] - x[0]            # gridspacing in x
+    deltat = t[1] - t[0]            # gridspacing in t
+    lmbda = kappa*deltat/(deltax**2)
+    #Calculate initial conditions
+    for i in range(0, max_x+1):
+        jarray[i] = pde(x[i])
+    a = -lmbda * np.ones(max_x)
+    b = (1+2*lmbda)*np.ones(max_x)
+    c = a
+    mtrx = np.array([a, b, c])
+    pos = [-1, 0, 1]
+    A_BE = sp.sparse.spdiags(mtrx, pos, max_x, max_x).todense()
+    A_BE[0, max_x-1] = A_BE[max_x-1, 0] = -lmbda
+    for j in range(max_t):
+        # pj = bc(t[j])
+        #Matrix calculations
+        jarray1[:-1] = sp.sparse.linalg.spsolve(A_BE, jarray[:-1])
+        # Set up BCs
+        jarray1[-1] = jarray[0]
+        # Save u_j at time t[j+1]
+        jarray[:] = jarray1[:]
+    return x, jarray
+
+
+def CN_periodic(max_x, max_t, T, L, pde):
+    x = np.linspace(0, L, max_x+1)     # mesh points in space
+    t = np.linspace(0, T, max_t+1)
+    jarray = np.zeros(x.size)        # u at current time step
+    jarray1 = np.zeros(x.size)
+    deltax = x[1] - x[0]            # gridspacing in x
+    deltat = t[1] - t[0]            # gridspacing in t
+    lmbda = kappa*deltat/(deltax**2)
+    #Calculate initial conditions
+    for i in range(0, max_x+1):
+        jarray[i] = pde(x[i])
+    a = -(lmbda/2) * np.ones(max_x)
+    b = (1+lmbda)*np.ones(max_x)
+    c = a
+    mtrx = np.array([a, b, c])
+    pos = [-1, 0, 1]
+    A_BE = sp.sparse.spdiags(mtrx, pos, max_x, max_x).todense()
+    A_BE[0, max_x-1] = A_BE[max_x-1, 0] = -lmbda/2
+
+    a1 = (lmbda/2) * np.ones(max_x)
+    b1 = (1-lmbda)*np.ones(max_x)
+    c1 = a1
+    mtrx1 = np.array([a1, b1, c1])
+    pos = [-1, 0, 1]
+    B_BE = sp.sparse.spdiags(mtrx1, pos, max_x, max_x).todense()
+    B_BE[0, max_x-1] = B_BE[max_x-1, 0] = lmbda/2
+    for j in range(max_t):
+        # pj = bc(t[j])
+        #Matrix calculations
+        rhs = np.array(B_BE.dot(jarray[:-1]))
+        jarray1[:-1] = sp.sparse.linalg.spsolve(A_BE, rhs[0])
         # Set up BCs
         jarray1[-1] = jarray[0]
         # Save u_j at time t[j+1]
@@ -509,11 +569,17 @@ mt = 2000
 # X1, uj1 = finite_diff(, discretisation='forward')
 # X2, uj2 = finite_diff(u_fx, mx, mt, T, L, [b1test, b2test], bc_type='neumann', discretisation='cn')
 # #Plot the final result and exact solution
-X3, uj3 = FE_periodic(mx, mt, T, L, u_fx, b1test)
+X3, uj3 = FE_periodic(mx, mt, T, L, u_fx)
+X4, uj4 = BE_periodic(mx, mt, T, L, u_fx)
+X5, uj5 = CN_periodic(mx, mt, T, L, u_fx)
+
 xx = np.linspace(0,L,250)
 # plt.plot(xx,u_exact(xx,T),'b-',label='exact')
 
-plt.plot(X3, uj3, label='periodic')
+plt.plot(X3, uj3, 'bx',label='FE')
+plt.plot(X4, uj4, 'ro', label='BE')
+plt.plot(X5, uj5, 'gx', label='CN')
+
 # plt.plot(X, u_j,'rx',label='BE')
 # plt.plot(X1, uj1,'bo',label='FE')
 # plt.plot(X2, uj2,'gx',label='CN')
