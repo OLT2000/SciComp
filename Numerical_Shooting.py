@@ -1,7 +1,6 @@
 import numpy as np
 from Numerical_Integrator import solve_ode
 from scipy.optimize import root
-from functions_to_solve import hopf, predatorprey
 from numbers import Real
 from types import FunctionType
 

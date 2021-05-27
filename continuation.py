@@ -2,8 +2,6 @@ import numpy as np
 from scipy.optimize import root
 import matplotlib.pyplot as plt
 from types import FunctionType
-# from Numerical_Shooting import shooting
-from functions_to_solve import hopf_beta
 
 
 def np_continuation(ode, init_vals, param_space):
