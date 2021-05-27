@@ -13,7 +13,6 @@ def get_error(predicted, true, min_tol = 1e-10):
     return tolerance
 
 #Numerical Integration
-"""
 #Define Our ODE
 def example_ode(Y, t):
     y, v = Y
@@ -49,14 +48,12 @@ plt.ylabel('Y')
 plt.legend(loc='upper right')
 plt.show()
 
-error = get_error(Y_sol, Y_true)
+error = get_error(Y_sol, Y_True)
 
-print("The error present here is approximately", error)
-"""
+print("The error for the Runge-Kuuta scheme is", error, '\n')
 
 
 #Limit Cycles and Shooting
-"""
 from Numerical_Shooting import shooting
 #Define our ODE
 def hopf(U, t):
@@ -99,12 +96,10 @@ plt.legend(loc = 'lower right')
 plt.show()
 
 error_shoot = get_error(u1, u1true)
-print("The shooting error is approximately", error_shoot)
-"""
+print("The shooting error is approximately", error_shoot, '\n')
 
 
 #Parameter Continuation
-"""
 from continuation import np_continuation, pseudo_arc_length
 #Define our function
 #My continuation can only handle one parameter at a time. All the others must be hardcoded as follows
@@ -134,12 +129,11 @@ plt.legend(loc = 'lower right')
 plt.xlabel('Parameter')
 plt.ylabel('Equilibrium')
 plt.show()
-"""
+
 
 
 
 #PDE problems
-"""
 from PDE_solver import finite_diff
 
 #Define our Initial Condition
@@ -187,4 +181,4 @@ error_cn = get_error(u_cn, true_u)
 print("The error for forward euler is", error_fe)
 print("The error for backwards euler is", error_be)
 print("The error for crank-nicolson is", error_cn)
-"""
+
