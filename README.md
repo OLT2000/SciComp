@@ -1,2 +1,0 @@
-# SciComp
-SciComp assignments
